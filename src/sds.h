@@ -34,6 +34,7 @@
 #ifndef __SDS_H
 #define __SDS_H
 
+// 最大预分配长度,1MB
 #define SDS_MAX_PREALLOC (1024*1024)
 const char *SDS_NOINIT;
 
@@ -41,10 +42,16 @@ const char *SDS_NOINIT;
 #include <stdarg.h>
 #include <stdint.h>
 
+// 指向 sdshdr n 的 buf 属性
 typedef char *sds;
 
+/* __attribute__ ((__packed__))，可以让结构体按照紧凑排列的方式来占用内存
+ * 5种sdshdr也是为了节省内存。
+ */
 /* Note: sdshdr5 is never used, we just access the flags byte directly.
- * However is here to document the layout of type 5 SDS strings. */
+ * However is here to document the layout of type 5 SDS strings.
+ * sdshdr5并不使用，使用flags的高5位说明字符串长度。(也就是说推荐使用原生字符串)
+ * */
 struct __attribute__ ((__packed__)) sdshdr5 {
     unsigned char flags; /* 3 lsb of type, and 5 msb of string length */
     char buf[];
@@ -74,18 +81,25 @@ struct __attribute__ ((__packed__)) sdshdr64 {
     char buf[];
 };
 
+// flags低三位代表不同类型的sdshdr：
 #define SDS_TYPE_5  0
 #define SDS_TYPE_8  1
 #define SDS_TYPE_16 2
 #define SDS_TYPE_32 3
 #define SDS_TYPE_64 4
+// 掩码
 #define SDS_TYPE_MASK 7
+// 右移
 #define SDS_TYPE_BITS 3
+// 返回一个指向sdshdr头部的起始地址的指针[sds减去头部大小]
 #define SDS_HDR_VAR(T,s) struct sdshdr##T *sh = (void*)((s)-(sizeof(struct sdshdr##T)));
+// 返回sdshdr头部的起始地址
 #define SDS_HDR(T,s) ((struct sdshdr##T *)((s)-(sizeof(struct sdshdr##T))))
 #define SDS_TYPE_5_LEN(f) ((f)>>SDS_TYPE_BITS)
 
+// 获取buf中sdshdr存储的字符串的长度
 static inline size_t sdslen(const sds s) {
+    // 后移1个字节为flags(内存紧凑的原因)
     unsigned char flags = s[-1];
     switch(flags&SDS_TYPE_MASK) {
         case SDS_TYPE_5:
@@ -102,6 +116,7 @@ static inline size_t sdslen(const sds s) {
     return 0;
 }
 
+// 可用存储空间长度
 static inline size_t sdsavail(const sds s) {
     unsigned char flags = s[-1];
     switch(flags&SDS_TYPE_MASK) {
@@ -128,6 +143,7 @@ static inline size_t sdsavail(const sds s) {
     return 0;
 }
 
+// 设置使用长度
 static inline void sdssetlen(sds s, size_t newlen) {
     unsigned char flags = s[-1];
     switch(flags&SDS_TYPE_MASK) {
@@ -152,6 +168,7 @@ static inline void sdssetlen(sds s, size_t newlen) {
     }
 }
 
+// 增加使用长度
 static inline void sdsinclen(sds s, size_t inc) {
     unsigned char flags = s[-1];
     switch(flags&SDS_TYPE_MASK) {
