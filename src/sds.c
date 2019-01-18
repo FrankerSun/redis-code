@@ -86,13 +86,21 @@ static inline char sdsReqType(size_t string_size) {
  *
  * You can print the string with printf() as there is an implicit \0 at the
  * end of the string. However the string is binary safe and can contain
- * \0 characters in the middle, as the length is stored in the sds header. */
+ * \0 characters in the middle, as the length is stored in the sds header.
+ *
+ * 根据指定内容和指定长度创建一个sds字符串
+ *
+ * 二进制安全，字符串中间可有\0(C语言里作为字符串结尾)
+ *
+ */
 sds sdsnewlen(const void *init, size_t initlen) {
     void *sh;
     sds s;
     char type = sdsReqType(initlen);
     /* Empty strings are usually created in order to append. Use type 8
-     * since type 5 is not good at this. */
+     * since type 5 is not good at this.
+     * 空字符串和type 5默认设为SDS_TYPE_8
+     */
     if (type == SDS_TYPE_5 && initlen == 0) type = SDS_TYPE_8;
     int hdrlen = sdsHdrSize(type);
     unsigned char *fp; /* flags pointer. */
@@ -101,9 +109,12 @@ sds sdsnewlen(const void *init, size_t initlen) {
     if (init==SDS_NOINIT)
         init = NULL;
     else if (!init)
+        // 如果没有指定初始内容，分配空间，设置为0
         memset(sh, 0, hdrlen+initlen+1);
     if (sh == NULL) return NULL;
+    // 地址查询-->buf[内存紧凑]
     s = (char*)sh+hdrlen;
+    // flags指针
     fp = ((unsigned char*)s)-1;
     switch(type) {
         case SDS_TYPE_5: {
@@ -139,6 +150,7 @@ sds sdsnewlen(const void *init, size_t initlen) {
             break;
         }
     }
+    // 赋值
     if (initlen && init)
         memcpy(s, init, initlen);
     s[initlen] = '\0';
@@ -201,7 +213,10 @@ void sdsclear(sds s) {
  * bytes after the end of the string, plus one more byte for nul term.
  *
  * Note: this does not change the *length* of the sds string as returned
- * by sdslen(), but only the free buffer space we have. */
+ * by sdslen(), but only the free buffer space we have.
+ *
+ * 扩容函数(free空间)
+ */
 sds sdsMakeRoomFor(sds s, size_t addlen) {
     void *sh, *newsh;
     size_t avail = sdsavail(s);
@@ -215,6 +230,7 @@ sds sdsMakeRoomFor(sds s, size_t addlen) {
     len = sdslen(s);
     sh = (char*)s-sdsHdrSize(oldtype);
     newlen = (len+addlen);
+    // 扩容机制 小于1M，现有空间乘以2；超过1M，则扩容1M
     if (newlen < SDS_MAX_PREALLOC)
         newlen *= 2;
     else
@@ -243,6 +259,7 @@ sds sdsMakeRoomFor(sds s, size_t addlen) {
         s[-1] = type;
         sdssetlen(s, len);
     }
+    // 设置alloc字段
     sdssetalloc(s, newlen);
     return s;
 }

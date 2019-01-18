@@ -4160,7 +4160,8 @@ int main(int argc, char **argv) {
     initServer();
     if (background || server.pidfile) createPidFile();
     redisSetProcTitle(argv[0]);
-    redisAsciiArt();
+    // 关闭redis启动时的LOGO
+    // redisAsciiArt();
     checkTcpBacklogSettings();
 
     if (!server.sentinel_mode) {

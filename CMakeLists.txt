@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
-project(redis VERSION 4.0)
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
+project(r5 VERSION 5.0.3)
 set(CMAKE_BUILD_TYPE "Debug")
 
 get_filename_component(REDIS_ROOT "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
@@ -97,12 +97,12 @@ set(SRC_CLI
 set(EXECUTABLE_OUTPUT_PATH src)
 link_directories(deps/linenoise/ deps/lua/src deps/hiredis)
 
-add_executable(redis-server ${SRC_SERVER})
-target_include_directories(redis-server
+add_executable(r5-server ${SRC_SERVER})
+target_include_directories(r5-server
         PRIVATE ${REDIS_ROOT}/deps/linenoise
         PRIVATE ${REDIS_ROOT}/deps/hiredis
         PRIVATE ${REDIS_ROOT}/deps/lua/src)
-target_link_libraries(redis-server
+target_link_libraries(r5-server
         PRIVATE pthread
         PRIVATE m
         PRIVATE lua
