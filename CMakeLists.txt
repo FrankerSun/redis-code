@@ -90,7 +90,10 @@ set(SRC_CLI
         src/release.c
         src/anet.c
         src/ae.c
+        src/dict.c
+        src/crc16.c
         src/crc64.c
+        src/siphash.c
         )
 
 
