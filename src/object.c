@@ -46,7 +46,9 @@ robj *createObject(int type, void *ptr) {
     o->refcount = 1;
 
     /* Set the LRU to the current lruclock (minutes resolution), or
-     * alternatively the LFU counter. */
+     * alternatively the LFU counter.
+     * 设置LRU为当前的lruclock或LFU计数[两种key过期的策略]
+     * */
     if (server.maxmemory_policy & MAXMEMORY_FLAG_LFU) {
         o->lru = (LFUGetTimeInMinutes()<<8) | LFU_INIT_VAL;
     } else {
@@ -60,7 +62,7 @@ robj *createObject(int type, void *ptr) {
  * and will not touch the object. This way it is free to access shared
  * objects such as small integers from different threads without any
  * mutex.
- *
+ * 通过设置对象的refcount将其置为"共享"[多线程下不需要互相通信即可访问该对象]
  * A common patter to create shared objects:
  *
  * robj *myobject = makeObjectShared(createObject(...));
@@ -73,16 +75,21 @@ robj *makeObjectShared(robj *o) {
 }
 
 /* Create a string object with encoding OBJ_ENCODING_RAW, that is a plain
- * string object where o->ptr points to a proper sds string. */
+ * string object where o->ptr points to a proper sds string.
+ * 创建一个编码为OBJ_ENCODING_RAW格式的字符串对象(o->ptr指向sds字符串)
+ * */
 robj *createRawStringObject(const char *ptr, size_t len) {
     return createObject(OBJ_STRING, sdsnewlen(ptr,len));
 }
 
 /* Create a string object with encoding OBJ_ENCODING_EMBSTR, that is
  * an object where the sds string is actually an unmodifiable string
- * allocated in the same chunk as the object itself. */
+ * allocated in the same chunk as the object itself.
+ * 创建一个编码为OBJ_ENCODING_EMBSTR格式的不可变字符串对象[字符串长度 <= OBJ_ENCODING_EMBSTR_SIZE_LIMIT(44)时]
+ * 字符串内存空间和redisObject对象的空间一同分配，两者在同一个内存块
+ * */
 robj *createEmbeddedStringObject(const char *ptr, size_t len) {
-    robj *o = zmalloc(sizeof(robj)+sizeof(struct sdshdr8)+len+1);
+    robj *o = zmalloc(sizeof(robj)+sizeof(struct sdshdr8)+len+1); // 16 + 3 + 44[max] + 1
     struct sdshdr8 *sh = (void*)(o+1);
 
     o->type = OBJ_STRING;
@@ -114,7 +121,11 @@ robj *createEmbeddedStringObject(const char *ptr, size_t len) {
  * used.
  *
  * The current limit of 44 is chosen so that the biggest string object
- * we allocate as EMBSTR will still fit into the 64 byte arena of jemalloc. */
+ * we allocate as EMBSTR will still fit into the 64 byte arena of jemalloc.
+ * jemalloc分配内存以chunk的单位进行分配内存(8，16，32，64)
+ * 为保证字符串能被分配在同一个chunk中，对象长度不能超过64
+ * sizeof(robj) + sizeof(struct sdshdr8) + 1 = 16 + 3 + 1 = 20，因此字符串最大长度为44。
+ * */
 #define OBJ_ENCODING_EMBSTR_SIZE_LIMIT 44
 robj *createStringObject(const char *ptr, size_t len) {
     if (len <= OBJ_ENCODING_EMBSTR_SIZE_LIMIT)
