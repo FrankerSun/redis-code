@@ -1,5 +1,6 @@
 /* Slowlog implements a system that is able to remember the latest N
  * queries that took more than M microseconds to execute.
+ * 记录执行时间超过指定时间的查询
  *
  * The execution time to reach to be logged in the slow log is set
  * using the 'slowlog-log-slower-than' config directive, that is also
@@ -55,13 +56,15 @@ slowlogEntry *slowlogCreateEntry(client *c, robj **argv, int argc, long long dur
     for (j = 0; j < slargc; j++) {
         /* Logging too many arguments is a useless memory waste, so we stop
          * at SLOWLOG_ENTRY_MAX_ARGC, but use the last argument to specify
-         * how many remaining arguments there were in the original command. */
+         * how many remaining arguments there were in the original command.
+         * 只记录不超过SLOWLOG_ENTRY_MAX_ARGC的参数[节省内存]，但是会记录还剩下多少参数被忽略了[more arguments]
+         * */
         if (slargc != argc && j == slargc-1) {
             se->argv[j] = createObject(OBJ_STRING,
                 sdscatprintf(sdsempty(),"... (%d more arguments)",
                 argc-slargc+1));
         } else {
-            /* Trim too long strings as well... */
+            /* Trim too long strings as well... 超过指定长度会进行阶段[more bytes] */
             if (argv[j]->type == OBJ_STRING &&
                 sdsEncodedObject(argv[j]) &&
                 sdslen(argv[j]->ptr) > SLOWLOG_ENTRY_MAX_STRING)
@@ -80,7 +83,9 @@ slowlogEntry *slowlogCreateEntry(client *c, robj **argv, int argc, long long dur
                  * end shared with string objects stored into keys. Having
                  * shared objects between any part of Redis, and the data
                  * structure holding the data, is a problem: FLUSHALL ASYNC
-                 * may release the shared string object and create a race. */
+                 * may release the shared string object and create a race.
+                 * 为了避免竞争，复制字符串对象
+                 * */
                 se->argv[j] = dupStringObject(argv[j]);
             }
         }
@@ -95,7 +100,7 @@ slowlogEntry *slowlogCreateEntry(client *c, robj **argv, int argc, long long dur
 
 /* Free a slow log entry. The argument is void so that the prototype of this
  * function matches the one of the 'free' method of adlist.c.
- *
+ * 释放show log实体的函数
  * This function will take care to release all the retained object. */
 void slowlogFreeEntry(void *septr) {
     slowlogEntry *se = septr;
@@ -110,23 +115,30 @@ void slowlogFreeEntry(void *septr) {
 }
 
 /* Initialize the slow log. This function should be called a single time
- * at server startup. */
+ * at server startup.
+ * 初始化
+ * */
 void slowlogInit(void) {
+    // 慢查询日志记录在全局变量server的一个成员里
     server.slowlog = listCreate();
+    // 唯一ID
     server.slowlog_entry_id = 0;
+    // 设置list内存释放方法
     listSetFreeMethod(server.slowlog,slowlogFreeEntry);
 }
 
 /* Push a new entry into the slow log.
  * This function will make sure to trim the slow log accordingly to the
- * configured max length. */
+ * configured max length.
+ * 头插法
+ * */
 void slowlogPushEntryIfNeeded(client *c, robj **argv, int argc, long long duration) {
     if (server.slowlog_log_slower_than < 0) return; /* Slowlog disabled */
     if (duration >= server.slowlog_log_slower_than)
         listAddNodeHead(server.slowlog,
                         slowlogCreateEntry(c,argv,argc,duration));
 
-    /* Remove old entries if needed. */
+    /* Remove old entries if needed. 如果超过最大值，则将尾部的记录删除 */
     while (listLength(server.slowlog) > server.slowlog_max_len)
         listDelNode(server.slowlog,listLast(server.slowlog));
 }

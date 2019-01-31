@@ -26,8 +26,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-
+// 每条慢查询日志记录查询参数最多32个
 #define SLOWLOG_ENTRY_MAX_ARGC 32
+// 慢查询日志中每个查询参数最多记录128个字符
 #define SLOWLOG_ENTRY_MAX_STRING 128
 
 /* This structure defines an entry inside the slow log list */
