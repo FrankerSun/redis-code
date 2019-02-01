@@ -267,9 +267,11 @@ sds sdsMakeRoomFor(sds s, size_t addlen) {
 /* Reallocate the sds string so that it has no free space at the end. The
  * contained string remains not altered, but next concatenation operations
  * will require a reallocation.
- *
+ * 将sds多余的free空间释放掉。sds里的字符串不会修改，但是下次连接操作需要重新分配内存。
  * After the call, the passed sds string is no longer valid and all the
- * references must be substituted with the new pointer returned by the call. */
+ * references must be substituted with the new pointer returned by the call.
+ * 这次调用之后，入参sds不再有效，所有sds的引用必须指向函数返回的指针。
+ * */
 sds sdsRemoveFreeSpace(sds s) {
     void *sh, *newsh;
     char type, oldtype = s[-1] & SDS_TYPE_MASK;
@@ -304,6 +306,7 @@ sds sdsRemoveFreeSpace(sds s) {
 }
 
 /* Return the total size of the allocation of the specified sds string,
+ *
  * including:
  * 1) The sds header before the pointer.
  * 2) The string.
@@ -522,7 +525,7 @@ int sdsull2str(char *s, unsigned long long v) {
 }
 
 /* Create an sds string from a long long value. It is much faster than:
- *
+ * 根据long long类型的值创建一个sds字符串，比sdscatprintf性能要好很多
  * sdscatprintf(sdsempty(),"%lld\n", value);
  */
 sds sdsfromlonglong(long long value) {
