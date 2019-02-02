@@ -53,16 +53,19 @@ typedef struct dictEntry {
         uint64_t u64;
         int64_t s64;
         double d;
-    } v;
+    } v; // 为了减少内存碎片
     struct dictEntry *next;
 } dictEntry;
 
 // 哈希表类型相关的函数
 typedef struct dictType {
+    // 哈希值计算函数
     uint64_t (*hashFunction)(const void *key);
+    // key、value深拷贝，两个key的比较
     void *(*keyDup)(void *privdata, const void *key);
     void *(*valDup)(void *privdata, const void *obj);
     int (*keyCompare)(void *privdata, const void *key1, const void *key2);
+    // 析构函数
     void (*keyDestructor)(void *privdata, void *key);
     void (*valDestructor)(void *privdata, void *obj);
 } dictType;
@@ -71,21 +74,20 @@ typedef struct dictType {
  * implement incremental rehashing, for the old to the new table. */
 /*
  * 哈希表结构。每个字典拥有两个dictht(是用于扩容哈希表时的暂存数组)。
- *
  */
 typedef struct dictht {
-    dictEntry **table;
+    dictEntry **table; // 二级指针，指向dictEntry数组
     unsigned long size;
     unsigned long sizemask;
-    unsigned long used;
+    unsigned long used;  // load factor = used / size
 } dictht;
 
 // 字典
 typedef struct dict {
-    dictType *type;
-    void *privdata;
-    dictht ht[2];
-    long rehashidx; /* rehashing not in progress if rehashidx == -1 rehash下标 */
+    dictType *type; // 指向dictType结构的指针
+    void *privdata; // 私有数据的指针
+    dictht ht[2];   // 两个哈希表[为了增量重哈希]
+    long rehashidx; /* rehashing not in progress if rehashidx == -1 当前rehash索引，-1表示当前不在重哈希状态 */
     unsigned long iterators; /* number of iterators currently running 当前的迭代器数量 */
 } dict;
 
@@ -108,7 +110,7 @@ typedef struct dictIterator {
 typedef void (dictScanFunction)(void *privdata, const dictEntry *de);
 typedef void (dictScanBucketFunction)(void *privdata, dictEntry **bucketref);
 
-/* This is the initial size of every hash table */
+/* This is the initial size of every hash table 初始大小 */
 #define DICT_HT_INITIAL_SIZE     4
 
 /* ------------------------------- Macros ------------------------------------*/
