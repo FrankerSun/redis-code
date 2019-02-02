@@ -1,4 +1,5 @@
 /* adlist.c - A generic doubly linked list implementation
+ * 双端链表
  *
  * Copyright (c) 2006-2010, Salvatore Sanfilippo <antirez at gmail dot com>
  * All rights reserved.
@@ -36,7 +37,7 @@
 /* Create a new list. The created list can be freed with
  * AlFreeList(), but private value of every node need to be freed
  * by the user before to call AlFreeList().
- *
+ * 创建一个List. list可以通过调用AlFreeList函数释放，但是调用前每个节点的值需要手动释放
  * On error, NULL is returned. Otherwise the pointer to the new list. */
 list *listCreate(void)
 {
@@ -52,7 +53,9 @@ list *listCreate(void)
     return list;
 }
 
-/* Remove all the elements from the list without destroying the list itself. */
+/* Remove all the elements from the list without destroying the list itself.
+ * 移除所有元素，不销毁list
+ * */
 void listEmpty(list *list)
 {
     unsigned long len;
@@ -71,7 +74,7 @@ void listEmpty(list *list)
 }
 
 /* Free the whole list.
- *
+ * 释放整个list
  * This function can't fail. */
 void listRelease(list *list)
 {
@@ -81,7 +84,7 @@ void listRelease(list *list)
 
 /* Add a new node to the list, to head, containing the specified 'value'
  * pointer as value.
- *
+ * 添加元素节点，头插法。
  * On error, NULL is returned and no operation is performed (i.e. the
  * list remains unaltered).
  * On success the 'list' pointer you pass to the function is returned. */
@@ -107,7 +110,7 @@ list *listAddNodeHead(list *list, void *value)
 
 /* Add a new node to the list, to tail, containing the specified 'value'
  * pointer as value.
- *
+ * 插入元素，尾插法
  * On error, NULL is returned and no operation is performed (i.e. the
  * list remains unaltered).
  * On success the 'list' pointer you pass to the function is returned. */
@@ -162,7 +165,7 @@ list *listInsertNode(list *list, listNode *old_node, void *value, int after) {
 
 /* Remove the specified node from the specified list.
  * It's up to the caller to free the private value of the node.
- *
+ * 移除指定list的指定节点。释放node的值由调用者做
  * This function can't fail. */
 void listDelNode(list *list, listNode *node)
 {
@@ -201,7 +204,9 @@ void listReleaseIterator(listIter *iter) {
     zfree(iter);
 }
 
-/* Create an iterator in the list private iterator structure */
+/* Create an iterator in the list private iterator structure
+ * 创建一个迭代器
+ * */
 void listRewind(list *list, listIter *li) {
     li->next = list->head;
     li->direction = AL_START_HEAD;
@@ -215,7 +220,7 @@ void listRewindTail(list *list, listIter *li) {
 /* Return the next element of an iterator.
  * It's valid to remove the currently returned element using
  * listDelNode(), but not to remove other elements.
- *
+ * 返回迭代器的下一个元素。允许移动当前返回的元素，但是不能移除其他元素。
  * The function returns a pointer to the next element of the list,
  * or NULL if there are no more elements, so the classical usage patter
  * is:
@@ -241,12 +246,14 @@ listNode *listNext(listIter *iter)
 
 /* Duplicate the whole list. On out of memory NULL is returned.
  * On success a copy of the original list is returned.
- *
+ * 复制整个list。OOM时返回NULL。
  * The 'Dup' method set with listSetDupMethod() function is used
  * to copy the node value. Otherwise the same pointer value of
  * the original node is used as value of the copied node.
  *
- * The original list both on success or error is never modified. */
+ * The original list both on success or error is never modified.
+ * 原List不会被修改
+ * */
 list *listDup(list *orig)
 {
     list *copy;
@@ -283,7 +290,7 @@ list *listDup(list *orig)
  * set with listSetMatchMethod(). If no 'match' method
  * is set, the 'value' pointer of every node is directly
  * compared with the 'key' pointer.
- *
+ * 寻找第一个match给定key的结点。寻值函数如果存在，则使用寻值函数。否则直接比较
  * On success the first matching node pointer is returned
  * (search starts from head). If no matching node exists
  * NULL is returned. */
@@ -311,7 +318,10 @@ listNode *listSearchKey(list *list, void *key)
  * where 0 is the head, 1 is the element next to head
  * and so on. Negative integers are used in order to count
  * from the tail, -1 is the last element, -2 the penultimate
- * and so on. If the index is out of range NULL is returned. */
+ * and so on. If the index is out of range NULL is returned.
+ * 返回指定位置的元素。0--head，1--head的下一个元素。
+ * 负数代表从尾部技术。-1--tail,-2--倒数第二个元素。
+ * */
 listNode *listIndex(list *list, long index) {
     listNode *n;
 
@@ -326,7 +336,9 @@ listNode *listIndex(list *list, long index) {
     return n;
 }
 
-/* Rotate the list removing the tail node and inserting it to the head. */
+/* Rotate the list removing the tail node and inserting it to the head.
+ * 移动尾节点到头部
+ * */
 void listRotate(list *list) {
     listNode *tail = list->tail;
 
@@ -343,7 +355,9 @@ void listRotate(list *list) {
 }
 
 /* Add all the elements of the list 'o' at the end of the
- * list 'l'. The list 'other' remains empty but otherwise valid. */
+ * list 'l'. The list 'other' remains empty but otherwise valid.
+ * 将o中的元素全部放到l后面。other为空list但是未被释放
+ * */
 void listJoin(list *l, list *o) {
     if (o->head)
         o->head->prev = l->tail;
