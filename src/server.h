@@ -605,14 +605,17 @@ typedef struct RedisModuleDigest {
 #define LRU_CLOCK_RESOLUTION 1000 /* LRU clock resolution in ms */
 
 #define OBJ_SHARED_REFCOUNT INT_MAX
+/* redis对象  */
 typedef struct redisObject {
-    unsigned type:4;
-    unsigned encoding:4;
+    unsigned type:4; // 对象数据类型，4bits
+    unsigned encoding:4; // 对象编码类型，4bits
     unsigned lru:LRU_BITS; /* LRU time (relative to global lru_clock) or
                             * LFU data (least significant 8 bits frequency
-                            * and most significant 16 bits access time). */
-    int refcount;
-    void *ptr;
+                            * and most significant 16 bits access time).
+                            * least recently used
+                            * */
+    int refcount; // 引用计数
+    void *ptr; // 指向数据的指针
 } robj;
 
 /* Macro used to initialize a Redis object allocated on the stack.
@@ -672,17 +675,25 @@ typedef struct multiState {
 } multiState;
 
 /* This structure holds the blocking operation state for a client.
- * The fields used depend on client->btype. */
+ * The fields used depend on client->btype.
+ * 阻塞操作的状态
+ * */
 typedef struct blockingState {
-    /* Generic fields. */
+    /* Generic fields.  */
     mstime_t timeout;       /* Blocking operation timeout. If UNIX current time
-                             * is > timeout then the operation timed out. */
+                             * is > timeout then the operation timed out.
+                             * 阻塞操作的超时时间。如果当前时间＞超时时间，则操作超时
+                             * */
 
     /* BLOCKED_LIST, BLOCKED_ZSET and BLOCKED_STREAM */
     dict *keys;             /* The keys we are waiting to terminate a blocking
-                             * operation such as BLPOP or XREAD. Or NULL. */
+                             * operation such as BLPOP or XREAD. Or NULL.
+                             * 阻塞状态的Key[等待阻塞操作的结束，如BLPOP/XREAD/NULL]
+                             * */
     robj *target;           /* The key that should receive the element,
-                             * for BRPOPLPUSH. */
+                             * for BRPOPLPUSH.
+                             * 应当接受元素的Key[BRPOPLPUSH]
+                             * */
 
     /* BLOCK_STREAM */
     size_t xread_count;     /* XREAD COUNT option. */
@@ -945,18 +956,18 @@ struct clusterState;
 
 struct redisServer {
     /* General */
-    pid_t pid;                  /* Main process pid. */
-    char *configfile;           /* Absolute config file path, or NULL */
-    char *executable;           /* Absolute executable file path. */
-    char **exec_argv;           /* Executable argv vector (copy). */
-    int dynamic_hz;             /* Change hz value depending on # of clients. */
+    pid_t pid;                  /* Main process pid. 主进程ID */
+    char *configfile;           /* Absolute config file path, or NULL 配置文件路径 */
+    char *executable;           /* Absolute executable file path. 可执行文件的绝对路径  */
+    char **exec_argv;           /* Executable argv vector (copy). 命令行参数 */
+    int dynamic_hz;             /* Change hz value depending on # of clients.  */
     int config_hz;              /* Configured HZ value. May be different than
                                    the actual 'hz' field value if dynamic-hz
                                    is enabled. */
     int hz;                     /* serverCron() calls frequency in hertz */
-    redisDb *db;
-    dict *commands;             /* Command table */
-    dict *orig_commands;        /* Command table before command renaming. */
+    redisDb *db;                /* 所有的数据库 */
+    dict *commands;             /* Command table 命令表 */
+    dict *orig_commands;        /* Command table before command renaming. 命令未改名前的命令表 */
     aeEventLoop *el;
     unsigned int lruclock;      /* Clock for LRU eviction */
     int shutdown_asap;          /* SHUTDOWN needed ASAP */
@@ -976,8 +987,8 @@ struct redisServer {
     int module_blocked_pipe[2]; /* Pipe used to awake the event loop if a
                                    client blocked on a module command needs
                                    to be processed. */
-    /* Networking */
-    int port;                   /* TCP listening port */
+    /* Networking 网络相关 */
+    int port;                   /* TCP listening port  */
     int tcp_backlog;            /* TCP listen() backlog */
     char *bindaddr[CONFIG_BINDADDR_MAX]; /* Addresses we should bind to */
     int bindaddr_count;         /* Number of addresses in server.bindaddr[] */
@@ -1000,19 +1011,19 @@ struct redisServer {
     dict *migrate_cached_sockets;/* MIGRATE cached sockets */
     uint64_t next_client_id;    /* Next client unique ID. Incremental. */
     int protected_mode;         /* Don't accept external connections. */
-    /* RDB / AOF loading information */
-    int loading;                /* We are loading data from disk if true */
+    /* RDB / AOF loading information RDB或AOF加载数据的信息 */
+    int loading;                /* We are loading data from disk if true 如果true，表示从磁盘加载了数据 */
     off_t loading_total_bytes;
     off_t loading_loaded_bytes;
     time_t loading_start_time;
     off_t loading_process_events_interval_bytes;
-    /* Fast pointers to often looked up command */
+    /* Fast pointers to often looked up command 常用命令的快速指针 */
     struct redisCommand *delCommand, *multiCommand, *lpushCommand,
             *lpopCommand, *rpopCommand, *zpopminCommand,
             *zpopmaxCommand, *sremCommand, *execCommand,
             *expireCommand, *pexpireCommand, *xclaimCommand,
             *xgroupCommand;
-    /* Fields used only for stats */
+    /* Fields used only for stats 用于统计 */
     time_t stat_starttime;          /* Server start time */
     long long stat_numcommands;     /* Number of processed commands */
     long long stat_numconnections;  /* Number of connections received */
@@ -1051,7 +1062,7 @@ struct redisServer {
         long long samples[STATS_METRIC_SAMPLES];
         int idx;
     } inst_metric[STATS_METRIC_COUNT];
-    /* Configuration */
+    /* Configuration 配置相关 */
     int verbosity;                  /* Loglevel in redis.conf */
     int maxidletime;                /* Client timeout in seconds */
     int tcpkeepalive;               /* Set SO_KEEPALIVE if non-zero. */
@@ -1107,9 +1118,9 @@ struct redisServer {
                                       to child process. */
     sds aof_child_diff;             /* AOF diff accumulator child side. */
     /* RDB persistence */
-    long long dirty;                /* Changes to DB from the last save */
-    long long dirty_before_bgsave;  /* Used to restore dirty on failed BGSAVE */
-    pid_t rdb_child_pid;            /* PID of RDB saving child */
+    long long dirty;                /* Changes to DB from the last save 从上次存储到现在DB的更新数量 */
+    long long dirty_before_bgsave;  /* Used to restore dirty on failed BGSAVE BGSAVE失败时存储更新数量 */
+    pid_t rdb_child_pid;            /* PID of RDB saving child  */
     struct saveparam *saveparams;   /* Save points array for RDB */
     int saveparamslen;              /* Number of saving points */
     char *rdb_filename;             /* Name of RDB file */
@@ -1281,7 +1292,7 @@ struct redisServer {
     int lazyfree_lazy_eviction;
     int lazyfree_lazy_expire;
     int lazyfree_lazy_server_del;
-    /* Latency monitor */
+    /* Latency monitor 延迟监控 */
     long long latency_monitor_threshold;
     dict *latency_events;
     /* Assert & bug reporting */
@@ -1357,7 +1368,9 @@ typedef struct {
     quicklistEntry entry; /* Entry in quicklist */
 } listTypeEntry;
 
-/* Structure to hold set iteration abstraction. */
+/* Structure to hold set iteration abstraction.
+ * set容器的迭代器的结构体
+ * */
 typedef struct {
     robj *subject;
     int encoding;
