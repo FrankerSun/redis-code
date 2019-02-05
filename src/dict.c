@@ -99,6 +99,7 @@ uint64_t dictGenCaseHashFunction(const unsigned char *buf, int len) {
 /* ----------------------------- API implementation ------------------------- */
 
 /* Reset a hash table already initialized with ht_init().
+ * 重置哈希表，不为哈希表的table分配内存
  * NOTE: This function should only be called by ht_destroy(). */
 static void _dictReset(dictht *ht)
 {
@@ -108,7 +109,7 @@ static void _dictReset(dictht *ht)
     ht->used = 0;
 }
 
-/* Create a new hash table */
+/* Create a new hash table 创建一个哈希表 */
 dict *dictCreate(dictType *type,
         void *privDataPtr)
 {
@@ -118,7 +119,7 @@ dict *dictCreate(dictType *type,
     return d;
 }
 
-/* Initialize the hash table */
+/* Initialize the hash table 初始化哈希表 */
 int _dictInit(dict *d, dictType *type,
         void *privDataPtr)
 {
@@ -262,9 +263,10 @@ static void _dictRehashStep(dict *d) {
     if (d->iterators == 0) dictRehash(d,1);
 }
 
-/* Add an element to the target hash table */
+/* Add an element to the target hash table 添加一个元素 */
 int dictAdd(dict *d, void *key, void *val)
 {
+    // 调用链 dictAddRaw -> _dictRehashStep -> _dictKeyIndex -> _dictExpandIfNeeded -> dictExpand
     dictEntry *entry = dictAddRaw(d,key,NULL);
 
     if (!entry) return DICT_ERR;
@@ -276,7 +278,7 @@ int dictAdd(dict *d, void *key, void *val)
  * This function adds the entry but instead of setting a value returns the
  * dictEntry structure to the user, that will make sure to fill the value
  * field as he wishes.
- *
+ * 添加一个entry而不是修改一个entry再返回。
  * This function is also directly exposed to the user API to be called
  * mainly in order to store non-pointers inside the hash value, example:
  *
@@ -299,14 +301,14 @@ dictEntry *dictAddRaw(dict *d, void *key, dictEntry **existing)
     if (dictIsRehashing(d)) _dictRehashStep(d);
 
     /* Get the index of the new element, or -1 if
-     * the element already exists. */
+     * the element already exists. 获得新元素的索引值，如果已经存在则返回-1 */
     if ((index = _dictKeyIndex(d, key, dictHashKey(d,key), existing)) == -1)
         return NULL;
 
-    /* Allocate the memory and store the new entry.
+    /* Allocate the memory and store the new entry. 分配内存、存储entry。
      * Insert the element in top, with the assumption that in a database
      * system it is more likely that recently added entries are accessed
-     * more frequently. */
+     * more frequently. 新元素插入在top，假定最近入库的访问最频繁*/
     ht = dictIsRehashing(d) ? &d->ht[1] : &d->ht[0];
     entry = zmalloc(sizeof(*entry));
     entry->next = ht->table[index];
@@ -318,7 +320,7 @@ dictEntry *dictAddRaw(dict *d, void *key, dictEntry **existing)
     return entry;
 }
 
-/* Add or Overwrite:
+/* Add or Overwrite: 添加或覆盖，如果key存在则丢弃原有值。
  * Add an element, discarding the old value if the key already exists.
  * Return 1 if the key was added from scratch, 0 if there was already an
  * element with such key and dictReplace() just performed a value update
@@ -328,7 +330,7 @@ int dictReplace(dict *d, void *key, void *val)
     dictEntry *entry, *existing, auxentry;
 
     /* Try to add the element. If the key
-     * does not exists dictAdd will succeed. */
+     * does not exists dictAdd will succeed. 尝试添加元素，如果key不存在则会添加成功。 */
     entry = dictAddRaw(d,key,&existing);
     if (entry) {
         dictSetVal(d, entry, val);
@@ -339,14 +341,17 @@ int dictReplace(dict *d, void *key, void *val)
      * to do that in this order, as the value may just be exactly the same
      * as the previous one. In this context, think to reference counting,
      * you want to increment (set), and then decrement (free), and not the
-     * reverse. */
+     * reverse.
+     * 设置新的值，并将原有值释放掉。
+     * 注意执行顺序[value可能相同]，这种情况下，考虑引用计数先增加，再减少，不要弄反了。
+     * */
     auxentry = *existing;
     dictSetVal(d, existing, val);
     dictFreeVal(d, &auxentry);
     return 0;
 }
 
-/* Add or Find:
+/* Add or Find: 添加或查找。底层调用dictAddRaw()判断。
  * dictAddOrFind() is simply a version of dictAddRaw() that always
  * returns the hash entry of the specified key, even if the key already
  * exists and can't be added (in that case the entry of the already
@@ -361,7 +366,9 @@ dictEntry *dictAddOrFind(dict *d, void *key) {
 
 /* Search and remove an element. This is an helper function for
  * dictDelete() and dictUnlink(), please check the top comment
- * of those functions. */
+ * of those functions.
+ * 查找并移除元素。see -> dictDelete()/dictUnlink()的注释
+ * */
 static dictEntry *dictGenericDelete(dict *d, const void *key, int nofree) {
     uint64_t h, idx;
     dictEntry *he, *prevHe;
@@ -400,7 +407,7 @@ static dictEntry *dictGenericDelete(dict *d, const void *key, int nofree) {
 }
 
 /* Remove an element, returning DICT_OK on success or DICT_ERR if the
- * element was not found. */
+ * element was not found. 移除一个元素，成功返回0，未找到元素返回1 */
 int dictDelete(dict *ht, const void *key) {
     return dictGenericDelete(ht,key,0) ? DICT_OK : DICT_ERR;
 }
@@ -410,7 +417,7 @@ int dictDelete(dict *ht, const void *key) {
  * if the element was found (and unlinked from the table), and the user
  * should later call `dictFreeUnlinkedEntry()` with it in order to release it.
  * Otherwise if the key is not found, NULL is returned.
- *
+ * TODO
  * This function is useful when we want to remove something from the hash
  * table but want to use its value before actually deleting the entry.
  * Without this function the pattern would require two lookups:
@@ -439,11 +446,11 @@ void dictFreeUnlinkedEntry(dict *d, dictEntry *he) {
     zfree(he);
 }
 
-/* Destroy an entire dictionary */
+/* Destroy an entire dictionary 销毁整个字典 注意第三个参数为一个回调函数 */
 int _dictClear(dict *d, dictht *ht, void(callback)(void *)) {
     unsigned long i;
 
-    /* Free all the elements */
+    /* Free all the elements 释放所有的元素 */
     for (i = 0; i < ht->size && ht->used > 0; i++) {
         dictEntry *he, *nextHe;
 
@@ -474,6 +481,7 @@ void dictRelease(dict *d)
     zfree(d);
 }
 
+/* 查找指定key对应的dictEntry */
 dictEntry *dictFind(dict *d, const void *key)
 {
     dictEntry *he;
@@ -753,13 +761,16 @@ static unsigned long rev(unsigned long v) {
 }
 
 /* dictScan() is used to iterate over the elements of a dictionary.
- *
+ * 最难系列-----遍历字典的所有元素------bitwise reverse iterator[重哈希的时候怎么遍历的？---TODO]
  * Iterating works the following way:
- *
  * 1) Initially you call the function using a cursor (v) value of 0.
  * 2) The function performs one step of the iteration, and returns the
  *    new cursor value you must use in the next call.
  * 3) When the returned cursor is 0, the iteration is complete.
+ * 遍历方式：
+ * 1.
+ * 2.
+ * 3.当游标为0时，遍历完成
  *
  * The function guarantees all elements present in the
  * dictionary get returned between the start and end of the iteration.
@@ -776,6 +787,8 @@ static unsigned long rev(unsigned long v) {
  * bits. That is, instead of incrementing the cursor normally, the bits
  * of the cursor are reversed, then the cursor is incremented, and finally
  * the bits are reversed again.
+ * 主要思想：增加高位游标。 不是正常的增加游标，而是先反置，再增加，然后再反置。代码如下
+ *                                        v = rev(v); v++; v = rev(v);
  *
  * This strategy is needed because the hash table may be resized between
  * iteration calls.
@@ -785,6 +798,8 @@ static unsigned long rev(unsigned long v) {
  * by computing the bitwise AND between Hash(key) and SIZE-1
  * (where SIZE-1 is always the mask that is equivalent to taking the rest
  *  of the division between the Hash of the key and SIZE).
+ *  dict.c哈希表的大小一直是2的n次方，并且使用链地址法，因此可以通过Hash(key)和Size-1之间的AND运算
+ *  来计算元素的位置(SIZE-1即为掩码。等于在Hash(Key)和SIZE之间所剩下的部分)
  *
  * For example if the current hash table size is 16, the mask is
  * (in binary) 1111. The position of a key in the hash table will always be
@@ -824,7 +839,7 @@ static unsigned long rev(unsigned long v) {
  * LIMITATIONS
  *
  * This iterator is completely stateless, and this is a huge advantage,
- * including no additional memory used.
+ * including no additional memory used. 这个遍历完全无状态，也没有额外的内存消耗。
  *
  * The disadvantages resulting from this design are:
  *
@@ -835,6 +850,11 @@ static unsigned long rev(unsigned long v) {
  *    we are sure we don't miss keys moving during rehashing.
  * 3) The reverse cursor is somewhat hard to understand at first, but this
  *    comment is supposed to help.
+ * 缺点：
+ * 1.返回的元素可能会重复，但是以很容易在应用层解决。
+ * 2.不能确定是否在重哈希时丢失键。
+ * 3.算法比较难理解。-_-!
+ *
  */
 unsigned long dictScan(dict *d,
                        unsigned long v,
