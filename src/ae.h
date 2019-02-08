@@ -1,7 +1,7 @@
 /* A simple event-driven programming library. Originally I wrote this code
  * for the Jim's event-loop (Jim is a Tcl interpreter) but later translated
  * it in form of a library for easy reuse.
- *
+ * 一个简单的事件驱动库
  * Copyright (c) 2006-2012, Salvatore Sanfilippo <antirez at gmail dot com>
  * All rights reserved.
  *
@@ -62,26 +62,30 @@
 struct aeEventLoop;
 
 /* Types and data structures */
+/* IO读写事件的回调函数 */
 typedef void aeFileProc(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
+/* 定时器事件的回调函数(返回值>0为下一次执行任务的延迟时间) */
 typedef int aeTimeProc(struct aeEventLoop *eventLoop, long long id, void *clientData);
+/* 事件结束后的函数 */
 typedef void aeEventFinalizerProc(struct aeEventLoop *eventLoop, void *clientData);
+/* 处理事件之前的调用函数 */
 typedef void aeBeforeSleepProc(struct aeEventLoop *eventLoop);
 
-/* File event structure */
+/* File event structure 文件事件结构体 */
 typedef struct aeFileEvent {
-    int mask; /* one of AE_(READABLE|WRITABLE|BARRIER) */
-    aeFileProc *rfileProc;
-    aeFileProc *wfileProc;
-    void *clientData;
+    int mask; /* one of AE_(READABLE|WRITABLE|BARRIER) 读/写/Barrier */
+    aeFileProc *rfileProc; /* 读文件回调 */
+    aeFileProc *wfileProc; /* 写文件回调 */
+    void *clientData;      /* 每个事件上的数据 */
 } aeFileEvent;
 
-/* Time event structure */
+/* Time event structure 定时器事件结构体 */
 typedef struct aeTimeEvent {
     long long id; /* time event identifier. */
     long when_sec; /* seconds */
     long when_ms; /* milliseconds */
-    aeTimeProc *timeProc;
-    aeEventFinalizerProc *finalizerProc;
+    aeTimeProc *timeProc; /* 定时 */
+    aeEventFinalizerProc *finalizerProc; /* 结束回调 */
     void *clientData;
     struct aeTimeEvent *prev;
     struct aeTimeEvent *next;
@@ -89,19 +93,19 @@ typedef struct aeTimeEvent {
 
 /* A fired event */
 typedef struct aeFiredEvent {
-    int fd;
-    int mask;
+    int fd; /* 文件描述符 */
+    int mask; /* 监听的事件类型 */
 } aeFiredEvent;
 
 /* State of an event based program */
 typedef struct aeEventLoop {
     int maxfd;   /* highest file descriptor currently registered */
-    int setsize; /* max number of file descriptors tracked */
+    int setsize; /* max number of file descriptors tracked 最大文件描述符 */
     long long timeEventNextId;
     time_t lastTime;     /* Used to detect system clock skew */
-    aeFileEvent *events; /* Registered events */
-    aeFiredEvent *fired; /* Fired events */
-    aeTimeEvent *timeEventHead;
+    aeFileEvent *events; /* Registered events 注册的事件 */
+    aeFiredEvent *fired; /* Fired events 底层IO多路复用返回的触发事件 */
+    aeTimeEvent *timeEventHead; /* 定时事件 */
     int stop;
     void *apidata; /* This is used for polling API specific data */
     aeBeforeSleepProc *beforesleep;
