@@ -45,6 +45,7 @@
 #include "config.h"
 
 /* Include the best multiplexing layer supported by this system.
+ * 依赖操作系统选择最优的模型
  * The following should be ordered by performances, descending. */
 #ifdef HAVE_EVPORT
 #include "ae_evport.c"
@@ -133,6 +134,7 @@ void aeStop(aeEventLoop *eventLoop) {
     eventLoop->stop = 1;
 }
 
+/* 创建一个文件事件 */
 int aeCreateFileEvent(aeEventLoop *eventLoop, int fd, int mask,
         aeFileProc *proc, void *clientData)
 {
@@ -140,10 +142,13 @@ int aeCreateFileEvent(aeEventLoop *eventLoop, int fd, int mask,
         errno = ERANGE;
         return AE_ERR;
     }
+    /* 根据文件描述符找到对应的事件 */
     aeFileEvent *fe = &eventLoop->events[fd];
 
+    /* 根据不同的系统，调用具体的实现 */
     if (aeApiAddEvent(eventLoop, fd, mask) == -1)
         return AE_ERR;
+    /* 添加监听的事件类型 */
     fe->mask |= mask;
     if (mask & AE_READABLE) fe->rfileProc = proc;
     if (mask & AE_WRITABLE) fe->wfileProc = proc;
@@ -160,7 +165,7 @@ void aeDeleteFileEvent(aeEventLoop *eventLoop, int fd, int mask)
     if (fe->mask == AE_NONE) return;
 
     /* We want to always remove AE_BARRIER if set when AE_WRITABLE
-     * is removed. */
+     * is removed. 如果AE_WRITABLE被移除，则AE_BARRIER也被移除 */
     if (mask & AE_WRITABLE) mask |= AE_BARRIER;
 
     aeApiDelEvent(eventLoop, fd, mask);
@@ -175,6 +180,7 @@ void aeDeleteFileEvent(aeEventLoop *eventLoop, int fd, int mask)
     }
 }
 
+/* 获取被监听的事件类型 */
 int aeGetFileEvents(aeEventLoop *eventLoop, int fd) {
     if (fd >= eventLoop->setsize) return 0;
     aeFileEvent *fe = &eventLoop->events[fd];
@@ -219,6 +225,7 @@ long long aeCreateTimeEvent(aeEventLoop *eventLoop, long long milliseconds,
     te->timeProc = proc;
     te->finalizerProc = finalizerProc;
     te->clientData = clientData;
+    /* 头插法 */
     te->prev = NULL;
     te->next = eventLoop->timeEventHead;
     if (te->next)
@@ -345,6 +352,7 @@ static int processTimeEvents(aeEventLoop *eventLoop) {
  * (that may be registered by time event callbacks just processed).
  * Without special flags the function sleeps until some file event
  * fires, or when the next time event occurs (if any).
+ * 处理每个定时事件，然后处理每个文件事件
  *
  * If flags is 0, the function does nothing and returns.
  * if flags has AE_ALL_EVENTS set, all the kind of events are processed.
